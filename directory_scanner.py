@@ -1,67 +1,65 @@
+
 import os
+import shutil
 
-# ==========================
-# MODULE 1 – EXPLORATION DE DOSSIER
-# ==========================
+# Dictionnaire contenant les types de fichiers et leurs extensions associées
+EXTENSIONS_SPECIALES = {
+    'images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp'],
+    'documents': ['.txt', '.doc', '.docx', '.odt'],
+    'pdf': ['.pdf'],
+    'tableurs': ['.xls', '.xlsx', '.ods'],
+    'archives': ['.zip', '.rar', '.tar', '.gz'],
+}
 
-def get_directory_path():
+def scanner_dossier(chemin):
     """
-    Demande à l'utilisateur de saisir un chemin de dossier.
-    Vérifie si le dossier existe.
+    Scanne le dossier spécifié et retourne la liste des fichiers qu'il contient.
+    
+    Args:
+        chemin (str): Chemin du dossier à scanner.
+        
+    Returns:
+        list: Liste des noms de fichiers présents dans le dossier (hors fichiers cachés).
     """
-    path = input("📁 Entrez le chemin du dossier à classer : ").strip()
-    if not os.path.isdir(path):
-        raise ValueError("❌ Chemin invalide ou dossier introuvable.")
-    return os.path.abspath(path)
+    fichiers = []
+    for item in os.listdir(chemin):
+        chemin_complet = os.path.join(chemin, item)
+        # On vérifie si c'est un fichier (pas un dossier) et s'il n'est pas caché
+        if os.path.isfile(chemin_complet) and not item.startswith('.'):
+            fichiers.append(item)
+    return fichiers
 
-
-def list_files(path):
+def restaurer_fichiers(chemin, journal):
     """
-    Liste tous les fichiers à la racine du dossier donné (ignore les sous-dossiers).
+    Restaure les fichiers déplacés à leurs emplacements d'origine en utilisant un journal.
+    
+    Args:
+        chemin (str): Chemin du dossier de base.
+        journal (dict): Journal contenant l'historique des déplacements avec la clé 'deplacements'.
     """
-    return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    for entree in journal['deplacements']:
+        chemin_actuel = entree['destination']  # Emplacement actuel du fichier déplacé
+        chemin_initial = os.path.join(chemin, entree['nom'])  # Emplacement d'origine
+        try:
+            shutil.move(chemin_actuel, chemin_initial)  # Déplacement du fichier vers son emplacement d'origine
+        except Exception as e:
+            print(f"Erreur lors de la restauration de {chemin_actuel} : {e}")
 
-
-def get_extension(file_name):
+def rechercher_fichier(chemin, nom_partiel):
     """
-    Retourne l'extension du fichier en majuscules (sans le point).
-    Si le fichier n’a pas d’extension, retourne None.
+    Recherche récursivement des fichiers contenant une partie spécifique de leur nom.
+    
+    Args:
+        chemin (str): Dossier de base où effectuer la recherche.
+        nom_partiel (str): Chaîne partielle à rechercher dans les noms de fichiers.
+        
+    Returns:
+        list: Liste des chemins complets des fichiers correspondant à la recherche.
     """
-    if '.' not in file_name or file_name.startswith('.'):
-        return None
-    return file_name.split('.')[-1].upper()
-
-
-def should_ignore(file_name):
-    """
-    Retourne True si le fichier doit être ignoré (ex : fichiers cachés commençant par un point).
-    """
-    return file_name.startswith('.')
-
-
-# ==========================
-# APPEL DE TEST – EXÉCUTION LOCALE
-# ==========================
-
-if __name__ == "__main__":
-    try:
-        # Demander le chemin du dossier à classer
-        chemin = get_directory_path()
-
-        # Lister les fichiers dans le dossier
-        fichiers = list_files(chemin)
-
-        if not fichiers:
-            print("ℹ️ Aucun fichier trouvé dans ce dossier.")
-        else:
-            print("\n📂 Fichiers détectés :")
-            for fichier in fichiers:
-                extension = get_extension(fichier)
-                ignore = should_ignore(fichier)
-                print(f"- {fichier} | Extension : {extension if extension else 'Aucune'} | Ignoré ? {'Oui' if ignore else 'Non'}")
-
-            print(f"\n✅ Total : {len(fichiers)} fichier(s) analysé(s).")
-
-    except Exception as e:
-        print(f"\n❌ Erreur : {e}")
-
+    resultats = []
+    for dossier, sous_dossiers, fichiers in os.walk(chemin):
+        for f in fichiers:
+            # Si le nom partiel est contenu dans le nom du fichier (insensible à la casse)
+            if nom_partiel.lower() in f.lower():
+                resultats.append(os.path.join(dossier, f))
+    return resultats
